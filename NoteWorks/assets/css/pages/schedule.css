@@ -1,0 +1,177 @@
+/* assets/css/pages/schedule.css */
+
+/* 1. THANH CÔNG CỤ (VIEW TOGGLE) */
+.view-toggle {
+    display: flex;
+    background: #E2E8F0;
+    padding: 4px;
+    border-radius: 8px;
+    gap: 4px;
+}
+.view-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    color: var(--text-grey);
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    display: flex;
+    align-items: center;
+}
+.view-btn:hover { background: rgba(255,255,255,0.5); }
+.view-btn.active {
+    background: white;
+    color: var(--primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* 2. THANH ĐIỀU HƯỚNG TUẦN & DROPDOWN */
+.week-navigator {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 5px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    margin-right: 15px;
+}
+.week-btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; border: 1px solid #E2E8F0;
+    background: white; color: var(--text-grey);
+    cursor: pointer; text-decoration: none; transition: 0.2s;
+}
+.week-btn:hover { background: #F7F7F9; color: var(--primary); }
+
+.week-info {
+    padding: 0 15px;
+    display: flex; flex-direction: column; align-items: center;
+    min-width: 180px;
+}
+.week-highlight { font-weight: 700; color: var(--primary); font-size: 13px; text-transform: uppercase; }
+.month-highlight { font-size: 11px; color: #64748b; }
+
+/* STYLE MENU DROP DOWN (Mới) */
+.jump-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%; right: 0;
+    background-color: white;
+    min-width: 240px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    border-radius: 8px;
+    z-index: 100;
+    margin-top: 5px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+.jump-dropdown.show { display: block; }
+
+/* Phần nhập ngày */
+.jump-section { padding: 12px; background: #f8fafc; }
+.jump-label { font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 5px; text-transform: uppercase; }
+.jump-input {
+    width: 100%; padding: 6px;
+    border: 1px solid #cbd5e1; border-radius: 6px;
+    font-size: 13px; outline: none; background: white;
+}
+.jump-input:focus { border-color: var(--primary); }
+
+.jump-divider { height: 1px; background: #e2e8f0; margin: 0; }
+
+/* Danh sách tuần cũ */
+.jump-title { padding: 8px 12px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; border-bottom: 1px solid #f1f5f9; background: #fff; }
+.jump-item {
+    display: block; padding: 8px 12px;
+    color: #334155; text-decoration: none; font-size: 13px;
+    border-bottom: 1px dashed #f1f5f9; background: #fff;
+}
+.jump-item:hover { background: #f8fafc; color: var(--primary); }
+.jump-item b { display:block; margin-bottom: 2px; }
+
+/* 3. BẢNG TKB (GRID VIEW FIX) */
+.tkb-wrapper {
+    overflow-x: auto;
+    background: white; border-radius: 12px;
+    box-shadow: var(--shadow);
+}
+.tkb-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+    table-layout: fixed; /* Cố định layout */
+}
+.tkb-table th, .tkb-table td {
+    border: 1px solid #f1f5f9;
+    padding: 5px;
+    vertical-align: top;
+}
+.tkb-period-col {
+    background: #f8fafc; width: 60px;
+    text-align: center; vertical-align: middle !important;
+    border-right: 2px solid #e2e8f0;
+}
+.p-num { font-weight: 800; font-size: 14px; color: #475569; }
+.p-time { font-size: 10px; color: #94a3b8; }
+
+.tkb-table th { background: #f8fafc; color: #64748b; font-size: 12px; padding: 10px 5px; font-weight: 700; }
+.th-date { font-weight: 400; font-size: 10px; display: block; margin-top: 2px; }
+
+.tkb-cell {
+    height: auto; min-height: 60px;
+    padding: 4px !important;
+    position: relative;
+}
+.tkb-cell:hover { background: #fafafa; }
+
+/* Sự kiện trong Grid (Tự động xuống dòng) */
+.grid-event {
+    padding: 5px; border-radius: 4px;
+    font-size: 11px; margin-bottom: 4px;
+    text-align: left;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    white-space: normal; /* Cho phép xuống dòng */
+    word-wrap: break-word;
+    line-height: 1.3;
+}
+.grid-event.type-timetable { background: #eff6ff; color: #1e40af; border-left: 2px solid #3b82f6; }
+.grid-event.type-event { background: #fef3c7; color: #92400e; border-left: 2px solid #f59e0b; }
+
+.evt-title { font-weight: 600; margin-bottom: 3px; }
+.grid-actions { display: flex; gap: 8px; justify-content: flex-end; opacity: 0.5; margin-top: 2px; }
+.grid-event:hover .grid-actions { opacity: 1; }
+.grid-actions a { color: inherit; text-decoration: none; }
+
+.session-row td { background: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 2px 10px !important; letter-spacing: 1px; }
+
+/* 4. LIST VIEW (MOBILE) */
+.schedule-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+.day-col { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); min-height: 150px; }
+.day-col h4 { font-size: 13px; text-align: center; margin-bottom: 10px; color: var(--primary); border-bottom: 1px solid #f1f5f9; padding-bottom: 5px; }
+
+.sch-item { background: #f8fafc; padding: 8px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #cbd5e1; font-size: 12px; }
+.sch-item.item-timetable { border-left-color: #3b82f6; background: #eff6ff; }
+.sch-item.item-event { border-left-color: #f59e0b; background: #fffbeb; }
+
+.sch-title { display: block; margin-bottom: 2px; color: #334155; }
+.sch-time { color: #94a3b8; font-size: 11px; }
+
+/* Responsive */
+@media (max-width: 1024px) { .schedule-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .schedule-grid { grid-template-columns: 1fr; } }
+
+/* Form Styles */
+.flex-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.form-input { padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; outline: none; font-size: 14px; }
+.grow { flex-grow: 1; }
+.period-selector { display: flex; gap: 5px; align-items: center; background: #f8fafc; padding: 5px; border-radius: 6px; border: 1px solid #e2e8f0; }
+.period-input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; width: 45px; text-align: center; }
+.btn-primary { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.btn-cancel { padding: 8px 16px; border-radius: 6px; text-decoration: none; background: #f1f5f9; color: #475569; font-weight: 500; font-size: 14px; margin-left: 5px; }
+
+     /* Bổ sung CSS nhỏ cho nút Jump Date */
+ .jump-dropdown { display: none; position: absolute; background: white; border: 1px solid #ddd; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; top: 40px; right: 0; min-width: 200px; }
+.jump-dropdown.show { display: block; }
+.jump-input { width: 100%; padding: 8px; border: 1px solid #eee; border-radius: 4px; margin-top: 5px; }
+.error-box { background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #fecaca; font-size: 13px; }

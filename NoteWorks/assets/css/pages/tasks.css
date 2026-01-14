@@ -1,0 +1,113 @@
+/* assets/css/pages/tasks.css */
+
+/* Thanh công cụ: Bộ lọc + Tìm kiếm */
+.task-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    background: #fff;
+    padding: 15px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.filter-select {
+    padding: 10px 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'Poppins', sans-serif;
+    color: var(--text-main);
+    background: #F9FAFC;
+    cursor: pointer;
+}
+
+/* Pagination (Phân trang) */
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 25px;
+}
+
+.page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text-grey);
+    border: 1px solid var(--border);
+    transition: 0.3s;
+    font-weight: 500;
+}
+
+.page-link:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.page-link.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+/* Action Buttons trong bảng */
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: 0.2s;
+    margin-left: 5px;
+}
+.btn-edit { background: #E6FFFA; color: var(--color-green); }
+.btn-delete { background: #FFF5F5; color: var(--color-red); }
+.btn-edit:hover, .btn-delete:hover { transform: scale(1.1); }
+
+/* Form Edit Mode highlight */
+.card.editing {
+    border: 2px solid var(--primary);
+    position: relative;
+}
+.editing-badge {
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    background: var(--primary);
+    color: white;
+    padding: 2px 10px;
+    font-size: 11px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+ .action-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; margin-left: 4px; border: none; cursor: pointer; transition: 0.2s; text-decoration: none; }
+.btn-green { background: #dcfce7; color: #16a34a; }
+.btn-blue { background: #dbeafe; color: #2563eb; }
+.btn-red { background: #fee2e2; color: #dc2626; }
+.btn-grey { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+
+.subtask-wrapper { margin-top: 8px; padding-left: 12px; border-left: 2px solid #e2e8f0; }
+.subtask-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: flex-start; }
+.subtask-card.completed { background: #f8fafc; opacity: 0.7; }
+.subtask-card.completed span { text-decoration: line-through; color: #94a3b8; }
+
+.file-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; background: #f1f5f9; border-radius: 4px; font-size: 11px; color: #475569; text-decoration: none; border: 1px solid #cbd5e1; margin-right: 5px; margin-top: 5px; }
+.file-del { margin-left: 5px; color: #ef4444; font-weight: bold; cursor: pointer; }
+.cat-badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; color: #fff; font-weight: bold; }
+.edit-sub-row { display: flex; align-items: center; margin-bottom: 5px; }
+.edit-sub-row input { flex-grow: 1; padding: 6px; font-size: 13px; border: 1px solid #e2e8f0; border-radius: 4px; }

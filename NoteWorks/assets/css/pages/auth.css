@@ -1,0 +1,22 @@
+/* Trang Đăng nhập & Đăng ký */
+.auth-body {
+    background: #E2E8F0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.auth-box {
+    background: #FFF;
+    width: 400px;
+    padding: 40px;
+    border-radius: 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    text-align: center;
+}
+
+.auth-box h2 { font-size: 24px; margin-bottom: 10px; }
+.auth-box .form-input { margin-bottom: 15px; }
+.auth-box .btn-primary { width: 100%; justify-content: center; }
+.auth-link { color: var(--primary); font-weight: 600; margin-top: 20px; display: block; }

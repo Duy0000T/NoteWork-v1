@@ -1,0 +1,18 @@
+/* MASTER STYLESHEET */
+
+/* 1. Cấu hình chung */
+@import url('variables.css');   /* Biến màu sắc */
+@import url('base.css');        /* Reset & Body */
+@import url('layout.css');      /* Sidebar & Wrapper */
+@import url('components.css');  /* Button, Form, Card, Table */
+
+/* 2. Style riêng từng trang */
+@import url('pages/welcome.css');
+@import url('pages/auth.css');
+@import url('pages/dashboard.css');
+@import url('pages/schedule.css');
+@import url('pages/storage.css');
+ @import url('pages/tasks.css');
+
+/* Trang Tasks hiện tại dùng chung component bảng và form
+   nên không cần file css riêng, nếu sau này cần bạn có thể tạo thêm pages/tasks.css */

@@ -1,0 +1,1374 @@
+<?php
+// assets/pages/dashboard.php
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit;
+}
+
+$uid = $_SESSION['user_id'];
+$username = $_SESSION['username'] ?? 'Bạn';
+date_default_timezone_set('Asia/Ho_Chi_Minh');
+$today_date = date('Y-m-d');
+
+// 1. CẤU HÌNH KHUNG GIỜ TIẾT HỌC
+$tiet_config = [
+        1 => ['start' => '07:00', 'end' => '07:50'], 2 => ['start' => '07:50', 'end' => '08:40'],
+        3 => ['start' => '08:40', 'end' => '09:35'], 4 => ['start' => '09:35', 'end' => '10:25'],
+        5 => ['start' => '10:25', 'end' => '11:15'], 6 => ['start' => '13:00', 'end' => '13:50'],
+        7 => ['start' => '13:50', 'end' => '14:40'], 8 => ['start' => '14:40', 'end' => '15:35'],
+        9 => ['start' => '15:35', 'end' => '16:25'], 10=> ['start' => '16:25', 'end' => '17:15'],
+        11=> ['start' => '17:30', 'end' => '18:15'], 12=> ['start' => '18:15', 'end' => '19:00'],
+        13=> ['start' => '19:00', 'end' => '19:45'], 14=> ['start' => '19:45', 'end' => '20:30'],
+        15=> ['start' => '20:30', 'end' => '21:15']
+];
+
+$monday_date = date('Y-m-d', strtotime('monday this week'));
+$sunday_date = date('Y-m-d', strtotime('sunday this week'));
+
+// 2. TRUY VẤN DỮ LIỆU
+// Thời khóa biểu
+$sql_grid = "SELECT title as subject, event_date, start_time, end_time FROM schedule 
+             WHERE user_id = $uid AND type = 'class' 
+             AND event_date BETWEEN '$monday_date' AND '$sunday_date'";
+$result_grid = $conn->query($sql_grid);
+$grid_data = [];
+if ($result_grid) {
+    while ($row = $result_grid->fetch_assoc()) {
+        $d_num = date('N', strtotime($row['event_date'])) + 1;
+        $s_time = substr($row['start_time'], 0, 5);
+        $e_time = substr($row['end_time'], 0, 5);
+        $start_p = 0;
+        foreach ($tiet_config as $tiet => $cfg) {
+            if ($s_time >= $cfg['start'] && $s_time < $cfg['end']) { $start_p = $tiet; break; }
+        }
+        if ($start_p > 0) {
+            $end_p = $start_p;
+            foreach ($tiet_config as $tiet => $cfg) {
+                if ($tiet < $start_p) continue;
+                if ($e_time <= $cfg['end']) { $end_p = $tiet; break; }
+            }
+            for ($i = 0; $i <= ($end_p - $start_p); $i++) {
+                $current_p = $start_p + $i;
+                if ($current_p <= 15) $grid_data[$current_p][$d_num] = $row['subject'];
+            }
+        }
+    }
+}
+
+// Sự kiện
+$event_res = $conn->query("SELECT *, title as subject FROM schedule WHERE user_id = $uid AND type = 'event' AND event_date >= '$today_date' ORDER BY event_date ASC, start_time ASC");
+$count_today_events = $conn->query("SELECT COUNT(*) as c FROM schedule WHERE user_id=$uid AND type='event' AND event_date='$today_date'")->fetch_assoc()['c'];
+
+// Thống kê & Công việc
+$total_tasks = $conn->query("SELECT COUNT(*) as c FROM tasks WHERE user_id=$uid AND parent_id IS NULL")->fetch_assoc()['c'];
+$completed_tasks = $conn->query("SELECT COUNT(*) as c FROM tasks WHERE user_id=$uid AND status='completed' AND parent_id IS NULL")->fetch_assoc()['c'];
+$progress_percent = ($total_tasks > 0) ? round(($completed_tasks / $total_tasks) * 100) : 0;
+$total_files = $conn->query("SELECT COUNT(*) as c FROM files WHERE user_id=$uid")->fetch_assoc()['c'];
+$urgent_tasks = $conn->query("SELECT * FROM tasks WHERE user_id=$uid AND status='pending' AND parent_id IS NULL ORDER BY due_date ASC");
+?>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <h1 style="font-size: 26px; font-weight: 800; color: var(--text); margin: 0;">Dashboard</h1>
+        <p style="color: var(--sub); margin-top: 4px;">Chào mừng trở lại, <b><?= htmlspecialchars($username) ?></b>! ✨</p>
+    </div>
+    <div style="text-align: right;">
+        <div style="font-size: 28px; font-weight: 800; color: var(--primary); letter-spacing: -1px;"><?= date('H:i') ?></div>
+        <div style="font-size: 12px; color: var(--sub); font-weight: 600;">
+            <?= (['Mon'=>'Thứ Hai','Tue'=>'Thứ Ba','Wed'=>'Thứ Tư','Thu'=>'Thứ Năm','Fri'=>'Thứ Sáu','Sat'=>'Thứ Bảy','Sun'=>'Chủ Nhật'])[date('D')] ?>, <?= date('d/m/Y') ?>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
+    <div class="stat-card-mini">
+        <div class="stat-icon" style="background: #eef2ff; color: #6366f1;"><i class="ri-pie-chart-line"></i></div>
+        <div><div style="font-size: 11px; color: var(--sub);">Tiến độ</div><div style="font-weight: 800;"><?= $progress_percent ?>%</div></div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon" style="background: #fff7ed; color: #f97316;"><i class="ri-calendar-event-line"></i></div>
+        <div><div style="font-size: 11px; color: var(--sub);">Sự kiện nay</div><div style="font-weight: 800;"><?= $count_today_events ?></div></div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon" style="background: #f0fdf4; color: #22c55e;"><i class="ri-task-line"></i></div>
+        <div><div style="font-size: 11px; color: var(--sub);">Công việc</div><div style="font-weight: 800;"><?= $total_tasks ?></div></div>
+    </div>
+    <div class="stat-card-mini">
+        <div class="stat-icon" style="background: #fef2f2; color: #ef4444;"><i class="ri-file-info-line"></i></div>
+        <div><div style="font-size: 11px; color: var(--sub);">Tài liệu</div><div style="font-weight: 800;"><?= $total_files ?></div></div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+    <div class="left-col">
+        <div class="card">
+            <div class="section-title" style="color: #ea580c;"><i class="ri-notification-3-line"></i> Lịch trình sắp tới</div>
+            <div class="event-scroll-box">
+                <?php if($event_res && $event_res->num_rows > 0): ?>
+                    <?php while($evt = $event_res->fetch_assoc()):
+                        $is_today = ($evt['event_date'] == $today_date);
+                        ?>
+                        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: <?= $is_today ? '#fff7ed' : '#f8fafc' ?>; border-radius: 12px; border: 1px solid <?= $is_today ? '#fed7aa' : '#e2e8f0' ?>; margin-bottom: 10px;">
+                            <div style="text-align: center; min-width: 55px; border-right: 1px solid #cbd5e1; padding-right: 10px;">
+                                <div style="font-size: 10px; color: var(--sub);"><?= date('d/m', strtotime($evt['event_date'])) ?></div>
+                                <div style="font-weight: 800;"><?= substr($evt['start_time'], 0, 5) ?></div>
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-size: 14px; font-weight: 700; color: var(--text);"><?= htmlspecialchars($evt['subject']) ?></div>
+                                <div style="font-size: 11px; color: var(--sub);"><i class="ri-map-pin-2-line"></i> <?= $evt['location'] ?: 'Chưa cập nhật' ?></div>
+                            </div>
+                            <?php if($is_today): ?><span style="background: #ea580c; color: #fff; font-size: 9px; padding: 2px 8px; border-radius: 20px; font-weight: 700;">NAY</span><?php endif; ?>
+                        </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <p style="text-align: center; color: var(--sub); padding: 20px; font-size: 13px;">Không có sự kiện sắp tới.</p>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title"><i class="ri-table-2"></i> Thời khóa biểu tuần</div>
+            <div class="tkb-wrapper">
+                <div class="tkb-grid">
+                    <div class="tkb-head">Tiết</div>
+                    <?php
+                    $days = [2=>'T2', 3=>'T3', 4=>'T4', 5=>'T5', 6=>'T6', 7=>'T7', 8=>'CN'];
+                    foreach($days as $num => $label): ?>
+                        <div class="tkb-head"><?= $label ?></div>
+                    <?php endforeach; ?>
+
+                    <div class="tkb-sep">BUỔI SÁNG</div>
+                    <?php for($i=1; $i<=5; $i++): ?>
+                        <div class="tkb-time"><?= $i ?></div>
+                        <?php for($d=2; $d<=8; $d++): ?>
+                            <div class="tkb-cell">
+                                <?php if(isset($grid_data[$i][$d])): ?>
+                                    <div class="tkb-subject"><?= htmlspecialchars($grid_data[$i][$d]) ?></div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endfor; ?>
+                    <?php endfor; ?>
+
+                    <div class="tkb-sep">BUỔI CHIỀU</div>
+                    <?php for($i=6; $i<=10; $i++): ?>
+                        <div class="tkb-time"><?= $i ?></div>
+                        <?php for($d=2; $d<=8; $d++): ?>
+                            <div class="tkb-cell">
+                                <?php if(isset($grid_data[$i][$d])): ?>
+                                    <div class="tkb-subject"><?= htmlspecialchars($grid_data[$i][$d]) ?></div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endfor; ?>
+                    <?php endfor; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-col">
+        <div class="card">
+            <div class="section-title"><i class="ri-pie-chart-line"></i> Tiến độ mục tiêu</div>
+            <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 800; margin-bottom: 5px;">
+                <span>Hoàn thành</span>
+                <span style="color: var(--primary);"><?= $progress_percent ?>%</span>
+            </div>
+            <div class="progress-outer"><div class="progress-inner" style="width: <?= $progress_percent ?>%"></div></div>
+            <div style="margin-top: 10px; font-size: 11px; color: var(--sub); text-align: center;">
+                Đã xong <b><?= $completed_tasks ?></b> / <b><?= $total_tasks ?></b> công việc.
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title"><i class="ri-list-check"></i> Việc cần làm gấp</div>
+            <div style="max-height: 250px; overflow-y: auto;">
+                <?php if($urgent_tasks->num_rows > 0): ?>
+                    <?php while($t = $urgent_tasks->fetch_assoc()): ?>
+                        <div style="padding: 10px 0; border-bottom: 1px solid #f8fafc;">
+                            <div style="font-size: 13px; font-weight: 700; color: var(--text);"><?= htmlspecialchars($t['title']) ?></div>
+                            <div style="font-size: 10px; color: #ef4444; margin-top: 2px;"><i class="ri-alarm-warning-line"></i> <?= date('d/m H:i', strtotime($t['due_date'])) ?></div>
+                        </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <p style="text-align: center; color: var(--sub); font-size: 12px; padding: 10px;">Bạn đã hoàn thành hết việc!</p>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="card" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: none; text-align: center; padding: 25px 20px;">
+            <i class="ri-double-quotes-l" style="font-size: 24px; opacity: 0.5;"></i>
+            <p style="margin: 15px 0; font-size: 13px; line-height: 1.6; font-style: italic; font-weight: 500;">
+                "Thành công không phải là chìa khóa mở cánh cửa hạnh phúc. Hạnh phúc là chìa khóa dẫn tới thành công."
+            </p>
+            <div style="font-size: 11px; opacity: 0.8; font-weight: 700; text-transform: uppercase;">- Albert Schweitzer -</div>
+        </div>
+    </div>
+</div> ; <?php
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $user = $_POST['username'];
+    $pass = $_POST['password'];
+    $stmt = $conn->prepare("SELECT * FROM users WHERE username = ?");
+    $stmt->bind_param("s", $user);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        if (password_verify($pass, $row['password'])) {
+            $_SESSION['user_id'] = $row['id'];
+            $_SESSION['username'] = $row['username'];
+            header("Location: index.php?page=dashboard");
+            exit();
+        } else $error = "Mật khẩu không đúng";
+    } else $error = "Tài khoản không tồn tại";
+}
+?>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <title>Đăng nhập</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+</head>
+<body class="auth-body">
+<div class="auth-box">
+    <i class="ri-user-smile-fill" style="font-size: 50px; color: var(--primary);"></i>
+    <h2>Đăng nhập</h2>
+    <?php if(isset($error)) echo "<p style='color:red; margin-bottom:10px;'>$error</p>"; ?>
+    <form method="POST">
+        <input type="text" name="username" placeholder="Username" required class="form-input">
+        <input type="password" name="password" placeholder="Password" required class="form-input">
+        <button type="submit" class="btn-primary">Đăng nhập</button>
+    </form>
+    <a href="index.php?page=register" class="auth-link">Chưa có tài khoản? Đăng ký</a>
+    <br>
+    <a href="index.php" style="color: #999; font-size: 12px;">Về trang chủ</a>
+</div>
+</body>
+</html> ; <?php
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $user = $_POST['username'];
+    $email = $_POST['email'];
+    $pass = password_hash($_POST['password'], PASSWORD_DEFAULT);
+
+    $check = $conn->query("SELECT * FROM users WHERE username='$user' OR email='$email'");
+    if($check->num_rows > 0) {
+        $error = "Username hoặc Email đã tồn tại";
+    } else {
+        $stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+        $stmt->bind_param("sss", $user, $email, $pass);
+        if ($stmt->execute()) header("Location: index.php?page=login");
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <title>Đăng ký</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+</head>
+<body class="auth-body">
+<div class="auth-box">
+    <i class="ri-user-add-fill" style="font-size: 50px; color: var(--primary);"></i>
+    <h2>Đăng ký tài khoản</h2>
+    <?php if(isset($error)) echo "<p style='color:red; margin-bottom:10px;'>$error</p>"; ?>
+    <form method="POST">
+        <input type="text" name="username" placeholder="Username" required class="form-input">
+        <input type="email" name="email" placeholder="Email" required class="form-input">
+        <input type="password" name="password" placeholder="Password" required class="form-input">
+        <button type="submit" class="btn-primary">Đăng ký ngay</button>
+    </form>
+    <a href="index.php?page=login" class="auth-link">Đã có tài khoản? Đăng nhập</a>
+</div>
+</body>
+</html>; <?php
+// assets/pages/schedule.php
+
+// 1. CHỐNG CACHE TRÌNH DUYỆT
+header("Cache-Control: no-cache, no-store, must-revalidate");
+header("Pragma: no-cache");
+header("Expires: 0");
+
+$uid = $_SESSION['user_id'];
+$view_mode = $_GET['view'] ?? 'list'; // 'list' hoặc 'grid'
+
+// ============================================================
+// 2. CẤU HÌNH KHUNG GIỜ (TIẾT HỌC)
+// ============================================================
+// Cấu hình này dùng để:
+// a) Hiển thị cột giờ bên trái Grid
+// b) Mapping từ giờ trong DB (VD: 07:00) sang vị trí ô Grid (Tiết 1)
+$periods_config = [
+        1 => ['start' => '07:00', 'end' => '07:50'],
+        2 => ['start' => '07:50', 'end' => '08:40'],
+        3 => ['start' => '08:40', 'end' => '09:35'],
+        4 => ['start' => '09:35', 'end' => '10:25'],
+        5 => ['start' => '10:25', 'end' => '11:15'], // Sáng
+        6 => ['start' => '13:00', 'end' => '13:50'],
+        7 => ['start' => '13:50', 'end' => '14:40'],
+        8 => ['start' => '14:40', 'end' => '15:35'],
+        9 => ['start' => '15:35', 'end' => '16:25'],
+        10=> ['start' => '16:25', 'end' => '17:15'], // Chiều
+        11=> ['start' => '17:30', 'end' => '18:15'],
+        12=> ['start' => '18:15', 'end' => '19:00'],
+        13=> ['start' => '19:00', 'end' => '19:45'], // Tối
+];
+
+// ============================================================
+// 3. XỬ LÝ THỜI GIAN (TUẦN & NGÀY)
+// ============================================================
+// Xử lý nhảy đến ngày cụ thể
+if (isset($_GET['jump_date']) && !empty($_GET['jump_date'])) {
+    $target = new DateTime($_GET['jump_date']);
+    $now = new DateTime();
+    // Tính khoảng cách tuần
+    $target->setISODate($target->format('o'), $target->format('W'));
+    $now->setISODate($now->format('o'), $now->format('W'));
+    $interval = $now->diff($target);
+    $weeks_diff = (int)$interval->format('%r%a') / 7;
+    header("Location: index.php?page=schedule&view=$view_mode&week=" . round($weeks_diff));
+    exit();
+}
+
+$week_offset = isset($_GET['week']) ? intval($_GET['week']) : 0;
+
+// Xác định ngày Thứ 2 đầu tuần và CN cuối tuần dựa trên offset
+$dt = new DateTime();
+$dt->setISODate($dt->format('o'), $dt->format('W')); // Về thứ 2 tuần hiện tại
+if ($week_offset != 0) {
+    $dt->modify(($week_offset > 0 ? '+' : '') . $week_offset . ' weeks');
+}
+
+$start_week_date = $dt->format('Y-m-d'); // Thứ 2
+$start_week_ts = $dt->getTimestamp();
+
+$dt_end = clone $dt;
+$dt_end->modify('+6 days');
+$end_week_date = $dt_end->format('Y-m-d'); // Chủ nhật
+
+// Tạo Map ngày trong tuần (Mon => 2025-12-29)
+$week_dates_map = [];
+$days_label_map = ['Mon'=>'Thứ 2','Tue'=>'Thứ 3','Wed'=>'Thứ 4','Thu'=>'Thứ 5','Fri'=>'Thứ 6','Sat'=>'Thứ 7','Sun'=>'CN'];
+$temp_d = clone $dt;
+foreach ($days_label_map as $code => $label) {
+    $week_dates_map[$code] = $temp_d->format('Y-m-d');
+    $temp_d->modify('+1 day');
+}
+
+// ============================================================
+// ============================================================
+$error_msg = "";
+
+if (isset($_POST['save_sch'])) {
+    $title = trim($_POST['subject']);
+    $day_code = $_POST['day']; // Mon, Tue...
+    $specific_date = $week_dates_map[$day_code]; // Lấy ngày cụ thể của tuần đang xem
+
+    // Tính giờ bắt đầu/kết thúc
+    if (isset($_POST['start_period']) && $_POST['start_period'] != '') {
+        // Nếu chọn theo Tiết -> Chuyển sang Giờ
+        $s_p = intval($_POST['start_period']);
+        $e_p = intval($_POST['end_period']);
+        $start_time = $periods_config[$s_p]['start'] . ":00";
+        $end_time   = $periods_config[$e_p]['end'] . ":00";
+        $type = 'class'; // Mặc định từ Grid là Lớp học
+    } else {
+        // Nếu nhập giờ thủ công
+        $start_time = $_POST['start'] . ":00";
+        $end_time   = $_POST['end'] . ":00";
+        $type = 'event';
+    }
+
+    // Xử lý Insert/Update
+    try {
+        if (isset($_POST['sch_id']) && $_POST['sch_id'] != '') {
+            $sid = intval($_POST['sch_id']);
+            $stmt = $conn->prepare("UPDATE schedule SET title=?, event_date=?, start_time=?, end_time=?, type=? WHERE id=? AND user_id=?");
+            $stmt->bind_param("sssssii", $title, $specific_date, $start_time, $end_time, $type, $sid, $uid);
+        } else {
+            $stmt = $conn->prepare("INSERT INTO schedule (user_id, title, event_date, start_time, end_time, type) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("isssss", $uid, $title, $specific_date, $start_time, $end_time, $type);
+        }
+
+        if(!$stmt->execute()) {
+            // Bắt lỗi trùng giờ (Duplicate entry)
+            if ($conn->errno == 1062) $error_msg = "Lỗi: Giờ này đã có lịch rồi!";
+            else $error_msg = "Lỗi hệ thống: " . $conn->error;
+        } else {
+            // Refresh trang
+            header("Location: index.php?page=schedule&view=$view_mode&week=$week_offset"); exit();
+        }
+    } catch (Exception $e) {
+        $error_msg = "Lỗi: " . $e->getMessage();
+    }
+}
+
+if (isset($_GET['delete'])) {
+    $id = intval($_GET['delete']);
+    $conn->query("DELETE FROM schedule WHERE id=$id AND user_id=$uid");
+    header("Location: index.php?page=schedule&view=$view_mode&week=$week_offset"); exit();
+}
+
+// Lấy dữ liệu EDIT
+$edit_data = ['day'=>'Mon', 'subject'=>'', 'start_p'=>'', 'end_p'=>'', 'start_t'=>'', 'end_t'=>'', 'id'=>''];
+$edit_mode = false;
+if (isset($_GET['edit'])) {
+    $edit_mode = true;
+    $eid = intval($_GET['edit']);
+    $res = $conn->query("SELECT * FROM schedule WHERE id=$eid AND user_id=$uid");
+    if($res && $row = $res->fetch_assoc()) {
+        $edit_data['id'] = $row['id'];
+        $edit_data['subject'] = $row['title'];
+        $edit_data['day'] = date('D', strtotime($row['event_date']));
+        $edit_data['start_t'] = substr($row['start_time'], 0, 5);
+        $edit_data['end_t'] = substr($row['end_time'], 0, 5);
+
+        // Cố gắng map lại về Tiết (nếu khớp giờ)
+        foreach($periods_config as $p => $time) {
+            if(substr($row['start_time'], 0, 5) == $time['start']) $edit_data['start_p'] = $p;
+            if(substr($row['end_time'], 0, 5) == $time['end']) $edit_data['end_p'] = $p;
+        }
+    }
+}
+
+// ============================================================
+// 5. LẤY DỮ LIỆU HIỂN THỊ
+// ============================================================
+$schedule_data = []; // Mảng chứa dữ liệu đã phân loại theo ngày
+
+// Query duy nhất: Lấy dữ liệu trong khoảng ngày của tuần
+$sql = "SELECT * FROM schedule 
+        WHERE user_id = $uid 
+        AND event_date BETWEEN '$start_week_date' AND '$end_week_date' 
+        ORDER BY event_date ASC, start_time ASC";
+$result = $conn->query($sql);
+
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $d_code = date('D', strtotime($row['event_date'])); // Mon, Tue...
+
+        // Tính toán Tiết bắt đầu/Kết thúc để vẽ lên Grid
+        $row['grid_start'] = null;
+        $row['grid_span'] = 1;
+
+        // Logic tìm tiết gần đúng nhất dựa trên giờ bắt đầu
+        $s_time = substr($row['start_time'], 0, 5);
+        foreach ($periods_config as $p => $cfg) {
+            if ($s_time >= $cfg['start'] && $s_time < $cfg['end']) {
+                $row['grid_start'] = $p;
+                break;
+            }
+        }
+
+        // Tính độ dài (số tiết)
+        // --- ĐOẠN CODE ĐÃ SỬA LỖI ---
+
+        // 1. Tìm Tiết Bắt Đầu (grid_start)
+        $s_time = substr($row['start_time'], 0, 5);
+        foreach ($periods_config as $p => $cfg) {
+            // So sánh giờ bắt đầu của sự kiện với khung giờ
+            if ($s_time >= $cfg['start'] && $s_time < $cfg['end']) {
+                $row['grid_start'] = $p;
+                break;
+            }
+        }
+
+        // 2. Tìm Tiết Kết Thúc để tính Span chính xác
+        if ($row['grid_start']) {
+            $e_time = substr($row['end_time'], 0, 5);
+            $end_p = $row['grid_start']; // Mặc định ít nhất là bằng tiết bắt đầu
+
+            // Duyệt từ tiết bắt đầu trở đi để tìm tiết kết thúc
+            foreach ($periods_config as $p => $cfg) {
+                if ($p < $row['grid_start']) continue;
+
+                // Nếu giờ kết thúc sự kiện <= giờ kết thúc của tiết này => Đây là tiết cuối
+                // Lưu ý: So sánh chuỗi thời gian (String comparison) hoạt động tốt với format HH:MM
+                if ($e_time <= $cfg['end']) {
+                    $end_p = $p;
+                    break;
+                }
+            }
+
+            // Tính số ô cần vẽ (Span) = Tiết cuối - Tiết đầu + 1
+            $row['grid_span'] = ($end_p - $row['grid_start']) + 1;
+        } else {
+            // Trường hợp không khớp tiết nào (VD: sự kiện nhập tay giờ lẻ), mặc định span=1
+            $row['grid_span'] = 1;
+        }
+
+        // --- HẾT ĐOẠN SỬA ---
+
+        $schedule_data[$d_code][] = $row;
+    }
+}
+?>
+
+<link rel="stylesheet" href="assets/css/pages/schedule.css">
+
+<div class="header-welcome">
+    <div>
+        <h1>Thời khóa biểu</h1>
+        <p>Tuần <?= $dt->format('W') ?> / Tháng <?= $dt->format('m') ?></p>
+    </div>
+
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <div class="week-navigator">
+            <a href="index.php?page=schedule&view=<?= $view_mode ?>&week=<?= $week_offset - 1 ?>" class="week-btn"><i class="ri-arrow-left-s-line"></i></a>
+
+            <div class="week-info">
+                <span class="week-highlight">
+                    <?= date('d/m', $start_week_ts) ?> - <?= date('d/m', strtotime($end_week_date)) ?>
+                </span>
+            </div>
+
+            <a href="index.php?page=schedule&view=<?= $view_mode ?>&week=<?= $week_offset + 1 ?>" class="week-btn"><i class="ri-arrow-right-s-line"></i></a>
+
+            <div style="position: relative; margin-left: 5px;">
+                <button class="week-btn" onclick="document.getElementById('jump-menu').classList.toggle('show')" type="button"><i class="ri-calendar-line"></i></button>
+                <div id="jump-menu" class="jump-dropdown">
+                    <label style="font-size: 12px; font-weight: bold; color: #666;">Đến ngày:</label>
+                    <input type="date" class="jump-input" onchange="window.location.href='index.php?page=schedule&view=<?= $view_mode ?>&jump_date='+this.value">
+                    <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 5px;">
+                        <a href="index.php?page=schedule&view=<?= $view_mode ?>&week=0" style="font-size: 12px; color: var(--primary); text-decoration: none;">Về tuần hiện tại</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="view-toggle">
+            <a href="index.php?page=schedule&view=list&week=<?= $week_offset ?>" class="view-btn <?= $view_mode=='list'?'active':'' ?>"><i class="ri-list-check"></i></a>
+            <a href="index.php?page=schedule&view=grid&week=<?= $week_offset ?>" class="view-btn <?= $view_mode=='grid'?'active':'' ?>"><i class="ri-grid-fill"></i></a>
+        </div>
+    </div>
+</div>
+
+<?php if($error_msg): ?>
+    <div class="error-box"><i class="ri-error-warning-fill"></i> <?= $error_msg ?></div>
+<?php endif; ?>
+
+<div class="card <?= $edit_mode ? 'editing' : '' ?>">
+    <h3 style="margin-bottom: 15px; font-size: 16px;">
+        <?= $edit_mode ? 'Cập nhật lịch' : 'Thêm vào lịch tuần này' ?>
+    </h3>
+    <form method="POST" class="flex-form">
+        <input type="hidden" name="sch_id" value="<?= $edit_data['id'] ?>">
+
+        <select name="day" class="form-input" style="width: 140px;">
+            <?php foreach($days_label_map as $code => $name): ?>
+                <option value="<?= $code ?>" <?= $code==$edit_data['day'] ? 'selected' : '' ?>>
+                    <?= $name ?> (<?= date('d/m', strtotime($week_dates_map[$code])) ?>)
+                </option>
+            <?php endforeach; ?>
+        </select>
+
+        <div class="grow">
+            <input type="text" name="subject" value="<?= htmlspecialchars($edit_data['subject']) ?>" placeholder="Tên môn học / Sự kiện" required class="form-input">
+        </div>
+
+        <?php if ($view_mode == 'grid'): ?>
+            <div class="period-selector">
+                <span style="font-size: 12px; color: #666;">Tiết:</span>
+                <select name="start_period" class="period-input" required>
+                    <option value="">-</option>
+                    <?php foreach($periods_config as $p => $t): ?>
+                        <option value="<?= $p ?>" <?= $edit_data['start_p'] == $p ? 'selected' : '' ?>><?= $p ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <span>-</span>
+                <select name="end_period" class="period-input" required>
+                    <option value="">-</option>
+                    <?php foreach($periods_config as $p => $t): ?>
+                        <option value="<?= $p ?>" <?= $edit_data['end_p'] == $p ? 'selected' : '' ?>><?= $p ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        <?php else: ?>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <input type="time" name="start" value="<?= $edit_data['start_t'] ?>" required class="form-input" style="width: 110px;">
+                <span>-</span>
+                <input type="time" name="end" value="<?= $edit_data['end_t'] ?>" required class="form-input" style="width: 110px;">
+            </div>
+        <?php endif; ?>
+
+        <button type="submit" name="save_sch" class="btn-primary"><?= $edit_mode ? 'Lưu' : 'Thêm' ?></button>
+        <?php if($edit_mode): ?><a href="index.php?page=schedule&view=<?= $view_mode ?>&week=<?= $week_offset ?>" class="btn-cancel">Hủy</a><?php endif; ?>
+    </form>
+</div>
+
+<?php if ($view_mode == 'grid'): ?>
+    <div class="tkb-wrapper">
+        <table class="tkb-table">
+            <thead>
+            <tr>
+                <th class="tkb-period-col">Tiết</th>
+                <?php foreach($days_label_map as $code => $name): ?>
+                    <th><?= $name ?><br><span class="th-date"><?= date('d/m', strtotime($week_dates_map[$code])) ?></span></th>
+                <?php endforeach; ?>
+            </tr>
+            </thead>
+            <tbody>
+            <?php foreach($periods_config as $p => $time):
+                // Phân cách buổi
+                if($p == 1) echo "<tr class='session-row'><td colspan='8'>Sáng</td></tr>";
+                if($p == 6) echo "<tr class='session-row'><td colspan='8'>Chiều</td></tr>";
+                if($p == 11) echo "<tr class='session-row'><td colspan='8'>Tối</td></tr>";
+                ?>
+                <tr>
+                    <td class="tkb-period-col">
+                        <div class="p-num"><?= $p ?></div>
+                        <div class="p-time"><?= $time['start'] ?>-<?= $time['end'] ?></div>
+                    </td>
+                    <?php foreach($days_label_map as $day_code => $day_name): ?>
+                        <td class="tkb-cell">
+                            <?php
+                            if(isset($schedule_data[$day_code])) {
+                                foreach($schedule_data[$day_code] as $evt) {
+
+                                    // Chỉ hiển thị lớp học
+                                    if ($evt['type'] !== 'class') continue;
+
+                                    // Kiểm tra xem sự kiện này có thuộc tiết này không
+                                    // Nếu grid_start khớp tiết này, hoặc nó kéo dài qua tiết này
+                                    $p_start = $evt['grid_start'];
+                                    $p_end = $evt['grid_start'] + $evt['grid_span'] - 1;
+
+                                    // Logic đơn giản: Chỉ hiển thị ở ô bắt đầu, set rowspan (nếu muốn) hoặc lặp lại
+                                    // Ở đây dùng cách vẽ vào tất cả các ô thuộc phạm vi để đơn giản hóa grid
+                                    if ($p >= $p_start && $p <= $p_end) {
+                                        $cls = ($evt['type'] == 'class') ? 'type-timetable' : 'type-event';
+                                        echo "<div class='grid-event $cls'>
+                                            <div class='evt-title'>".htmlspecialchars($evt['title'])."</div>
+                                            <div class='grid-actions'>
+                                                <a href='index.php?page=schedule&edit={$evt['id']}&view=grid&week=$week_offset'><i class='ri-pencil-line'></i></a>
+                                                <a href='index.php?page=schedule&delete={$evt['id']}&view=grid&week=$week_offset' onclick='return confirm(\"Xóa?\")'><i class='ri-delete-bin-line'></i></a>
+                                            </div>
+                                        </div>";
+                                    }
+                                }
+                            }
+                            ?>
+                        </td>
+                    <?php endforeach; ?>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+
+<?php else: ?>
+    <div class="schedule-grid">
+        <?php foreach($days_label_map as $code => $name): ?>
+            <div class="day-col">
+                <h4><?= $name ?> <span class="col-date"><?= date('d/m', strtotime($week_dates_map[$code])) ?></span></h4>
+                <?php if(isset($schedule_data[$code]) && count($schedule_data[$code]) > 0):
+                    foreach($schedule_data[$code] as $s): ?>
+                        <div class="sch-item <?= ($s['type']=='class') ? 'item-timetable' : 'item-event' ?>">
+                            <div class="sch-content">
+                                <strong class="sch-title"><?= htmlspecialchars($s['title']) ?></strong>
+                                <div class="sch-time">
+                                    <?= substr($s['start_time'], 0, 5) ?> - <?= substr($s['end_time'], 0, 5) ?>
+                                </div>
+                            </div>
+                            <div class="sch-actions">
+                                <a href="index.php?page=schedule&edit=<?= $s['id'] ?>&view=list&week=<?= $week_offset ?>"><i class="ri-pencil-line"></i></a>
+                                <a href="index.php?page=schedule&delete=<?= $s['id'] ?>&view=list&week=<?= $week_offset ?>" onclick="return confirm('Xóa?')"><i class="ri-delete-bin-line"></i></a>
+                            </div>
+                        </div>
+                    <?php endforeach;
+                else: ?>
+                    <div style="padding: 10px; color: #ccc; font-size: 12px; font-style: italic; text-align: center;">Trống</div>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
+
+<script>
+    // Đóng dropdown khi click ra ngoài
+    window.onclick = function(event) {
+        if (!event.target.closest('.week-btn') && !event.target.closest('.jump-dropdown')) {
+            var dropdowns = document.getElementsByClassName("jump-dropdown");
+            for (var i = 0; i < dropdowns.length; i++) {
+                dropdowns[i].classList.remove('show');
+            }
+        }
+    }
+</script>; <?php
+//
+$uid = $_SESSION['user_id'];
+if (!file_exists('uploads')) mkdir('uploads', 0777, true);
+
+// --- 1. XỬ LÝ XÓA FILE (Cho cả 2 tab) ---
+if (isset($_GET['del_id'])) {
+    $del_id = intval($_GET['del_id']);
+
+    // Kiểm tra quyền sở hữu file
+    $check = $conn->query("SELECT * FROM files WHERE id = $del_id AND user_id = $uid");
+
+    if ($check->num_rows > 0) {
+        $file_data = $check->fetch_assoc();
+        $file_path = $file_data['filepath'];
+
+        // Xóa file vật lý
+        if (file_exists($file_path)) {
+            unlink($file_path);
+        }
+
+        // Xóa trong Database
+        $conn->query("DELETE FROM files WHERE id = $del_id");
+
+        // Refresh trang
+        header("Location: index.php?page=storage");
+        exit();
+    } else {
+        echo "<script>alert('Bạn không có quyền xóa file này!');</script>";
+    }
+}
+
+// --- 2. XỬ LÝ UPLOAD (Cho Tab Kho lưu trữ chung) ---
+if (isset($_POST['upload'])) {
+    $name = $_FILES['file']['name'];
+    $target = "uploads/" . time() . "_" . basename($name);
+
+    if (move_uploaded_file($_FILES['file']['tmp_name'], $target)) {
+        // Mặc định file_type là 'general'
+        $stmt = $conn->prepare("INSERT INTO files (user_id, filename, filepath, file_type) VALUES (?, ?, ?, 'general')");
+        $stmt->bind_param("iss", $uid, $name, $target);
+        $stmt->execute();
+        header("Location: index.php?page=storage"); exit();
+    }
+}
+?>
+
+<div class="header-welcome"><h1>Quản lý Tài liệu</h1></div>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="openTab(event, 'tab-tasks')">
+        <i class="ri-folder-shared-line"></i> Tài liệu Công việc
+    </button>
+    <button class="tab-btn" onclick="openTab(event, 'tab-general')">
+        <i class="ri-hard-drive-2-line"></i> Kho Lưu trữ
+    </button>
+</div>
+
+<div id="tab-tasks" class="tab-content active">
+
+    <div class="split-layout">
+
+        <div class="split-col">
+            <div class="col-header header-blue">
+                <i class="ri-attachment-line"></i> Đính kèm (Đề bài/Hướng dẫn)
+            </div>
+
+            <?php
+            $sql_att = "SELECT f.*, t.title as task_name 
+                        FROM files f 
+                        LEFT JOIN tasks t ON f.task_id = t.id 
+                        WHERE f.user_id = $uid AND f.file_type = 'att' 
+                        ORDER BY f.uploaded_at DESC";
+            $att_files = $conn->query($sql_att);
+
+            if ($att_files->num_rows > 0):
+                ?>
+                <table class="file-table">
+                    <thead>
+                    <tr>
+                        <th>Tên File</th>
+                        <th>Công việc</th>
+                        <th class="action-col">Hành động</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php while($f = $att_files->fetch_assoc()): ?>
+                        <tr>
+                            <td>
+                                <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 140px;" title="<?= htmlspecialchars($f['filename']) ?>">
+                                    <i class="ri-file-text-line"></i> <?= htmlspecialchars($f['filename']) ?>
+                                </div>
+                                <small style="color:#888"><?= date('d/m', strtotime($f['uploaded_at'])) ?></small>
+                            </td>
+                            <td>
+                            <span style="font-size:12px; color:#555">
+                                <?= $f['task_name'] ? htmlspecialchars($f['task_name']) : '<span style="color:#bbb">Đã xóa</span>' ?>
+                            </span>
+                            </td>
+                            <td class="action-col">
+                                <div class="btn-group">
+                                    <a href="<?= $f['filepath'] ?>" download class="btn-icon btn-download" title="Tải về"><i class="ri-download-line"></i></a>
+                                    <a href="index.php?page=storage&del_id=<?= $f['id'] ?>" class="btn-icon btn-delete" title="Xóa" onclick="return confirm('Bạn chắc chắn muốn xóa file đính kèm này?');"><i class="ri-delete-bin-line"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <div style="padding: 30px; text-align: center; color: #888;">
+                    <i class="ri-file-search-line" style="font-size: 30px; margin-bottom: 10px; display:block;"></i>
+                    Chưa có tài liệu đính kèm nào.
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="split-col">
+            <div class="col-header header-green">
+                <i class="ri-checkbox-circle-line"></i> Minh chứng (Báo cáo/Kết quả)
+            </div>
+
+            <?php
+            $sql_proof = "SELECT f.*, t.title as task_name 
+                          FROM files f 
+                          LEFT JOIN tasks t ON f.task_id = t.id 
+                          WHERE f.user_id = $uid AND f.file_type = 'proof' 
+                          ORDER BY f.uploaded_at DESC";
+            $proof_files = $conn->query($sql_proof);
+
+            if ($proof_files->num_rows > 0):
+                ?>
+                <table class="file-table">
+                    <thead>
+                    <tr>
+                        <th>Tên File</th>
+                        <th>Công việc</th>
+                        <th class="action-col">Hành động</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php while($f = $proof_files->fetch_assoc()): ?>
+                        <tr>
+                            <td>
+                                <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 140px;" title="<?= htmlspecialchars($f['filename']) ?>">
+                                    <i class="ri-file-shred-line"></i> <?= htmlspecialchars($f['filename']) ?>
+                                </div>
+                                <small style="color:#888"><?= date('d/m', strtotime($f['uploaded_at'])) ?></small>
+                            </td>
+                            <td>
+                            <span style="font-size:12px; color:#555">
+                                <?= $f['task_name'] ? htmlspecialchars($f['task_name']) : '<span style="color:#bbb">Đã xóa</span>' ?>
+                            </span>
+                            </td>
+                            <td class="action-col">
+                                <div class="btn-group">
+                                    <a href="<?= $f['filepath'] ?>" download class="btn-icon btn-download" title="Tải về"><i class="ri-download-line"></i></a>
+                                    <a href="index.php?page=storage&del_id=<?= $f['id'] ?>" class="btn-icon btn-delete" title="Xóa" onclick="return confirm('Bạn chắc chắn muốn xóa minh chứng này?');"><i class="ri-delete-bin-line"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <div style="padding: 30px; text-align: center; color: #888;">
+                    <i class="ri-folder-open-line" style="font-size: 30px; margin-bottom: 10px; display:block;"></i>
+                    Chưa có minh chứng kết quả nào.
+                </div>
+            <?php endif; ?>
+        </div>
+
+    </div> </div>
+
+<div id="tab-general" class="tab-content">
+    <div class="card" style="margin-bottom: 20px; padding: 20px;">
+        <h3 style="margin-bottom: 15px; font-size: 16px;">Tải lên tài liệu cá nhân</h3>
+        <form method="POST" enctype="multipart/form-data" class="flex-form" style="display:flex; gap:10px;">
+            <input type="file" name="file" required class="form-input grow" style="flex:1; padding: 10px; border:1px solid #ddd; border-radius:8px;">
+            <button type="submit" name="upload" class="btn-primary" style="padding: 10px 20px; background: var(--primary); color:white; border:none; border-radius:8px; cursor:pointer;">
+                <i class="ri-upload-cloud-2-line"></i> Tải lên
+            </button>
+        </form>
+    </div>
+
+    <div class="file-grid">
+        <?php
+        $gen_files = $conn->query("SELECT * FROM files WHERE user_id=$uid AND file_type='general' ORDER BY uploaded_at DESC");
+        while($f = $gen_files->fetch_assoc()): ?>
+            <div class="file-card">
+                <div class="file-icon"><i class="ri-folder-3-fill"></i></div>
+                <div class="file-name" title="<?= htmlspecialchars($f['filename']) ?>"><?= htmlspecialchars($f['filename']) ?></div>
+                <div style="font-size: 12px; color: #888;">
+                    <?= date('d/m/Y', strtotime($f['uploaded_at'])) ?>
+                </div>
+
+                <div class="card-actions">
+                    <a href="<?= $f['filepath'] ?>" download class="btn-icon btn-download" title="Tải về"><i class="ri-download-line"></i></a>
+                    <a href="index.php?page=storage&del_id=<?= $f['id'] ?>" class="btn-icon btn-delete" title="Xóa" onclick="return confirm('Xóa tài liệu này khỏi kho lưu trữ?');"><i class="ri-delete-bin-line"></i></a>
+                </div>
+            </div>
+        <?php endwhile; ?>
+    </div>
+</div>
+
+<script>
+    function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        // Ẩn nội dung tất cả các tab
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].classList.remove("active");
+        }
+        // Bỏ active ở các nút
+        tablinks = document.getElementsByClassName("tab-btn");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+        // Hiển thị tab được chọn
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+    }
+</script>; <?php
+// BẮT BUỘC: Start Session
+if (session_status() === PHP_SESSION_NONE) session_start();
+if (!isset($_SESSION['user_id'])) die("Vui lòng đăng nhập.");
+
+ob_start(); // Bật buffer để chuyển hướng mượt mà
+
+$uid = $_SESSION['user_id'];
+date_default_timezone_set('Asia/Ho_Chi_Minh');
+
+// --- 1. HÀM UPLOAD FILE ---
+function uploadMultipleToStorage($inputName, $conn, $uid, $taskId, $type = 'general') {
+    if (isset($_FILES[$inputName]) && is_array($_FILES[$inputName]['name']) && $_FILES[$inputName]['name'][0] != "") {
+        $target_dir = "uploads/";
+        if (!file_exists($target_dir)) mkdir($target_dir, 0777, true);
+
+        $count = count($_FILES[$inputName]['name']);
+        for ($i = 0; $i < $count; $i++) {
+            if ($_FILES[$inputName]['error'][$i] == 0) {
+                $ext = pathinfo($_FILES[$inputName]['name'][$i], PATHINFO_EXTENSION);
+                $new_name = time() . "_" . uniqid() . "." . $ext;
+                $target_file = $target_dir . $new_name;
+
+                if (move_uploaded_file($_FILES[$inputName]['tmp_name'][$i], $target_file)) {
+                    $stmt = $conn->prepare("INSERT INTO files (user_id, task_id, filename, filepath, file_type) VALUES (?, ?, ?, ?, ?)");
+                    $stmt->bind_param("iisss", $uid, $taskId, $_FILES[$inputName]['name'][$i], $target_file, $type);
+                    $stmt->execute();
+                }
+            }
+        }
+    }
+}
+
+// --- 2. LOGIC MỚI: TOGGLE SUB-TASK & CẬP NHẬT TASK CHA ---
+if (isset($_GET['toggle_sub'])) {
+    $sid = intval($_GET['toggle_sub']);
+
+    // 1. Lấy thông tin sub-task và parent_id
+    $res = $conn->query("SELECT status, parent_id FROM tasks WHERE id=$sid AND user_id=$uid");
+    if($res && $res->num_rows > 0) {
+        $sub = $res->fetch_assoc();
+        $pid = $sub['parent_id'];
+
+        // 2. Đổi trạng thái sub-task
+        $new_sub_status = ($sub['status'] == 'pending') ? 'completed' : 'pending';
+        $conn->query("UPDATE tasks SET status='$new_sub_status' WHERE id=$sid");
+
+        // 3. Kiểm tra Task Cha (Auto Update Logic)
+        if($pid) {
+            // Đếm tổng số con
+            $total_subs = $conn->query("SELECT COUNT(*) as c FROM tasks WHERE parent_id=$pid")->fetch_assoc()['c'];
+            // Đếm số con đã xong
+            $done_subs = $conn->query("SELECT COUNT(*) as c FROM tasks WHERE parent_id=$pid AND status='completed'")->fetch_assoc()['c'];
+
+            // Nếu Tổng == Đã xong => Cha xong, ngược lại là Pending
+            $parent_status = ($total_subs == $done_subs) ? 'completed' : 'pending';
+            $conn->query("UPDATE tasks SET status='$parent_status' WHERE id=$pid");
+        }
+    }
+    header("Location: index.php?page=tasks"); exit();
+}
+
+// --- 3. LOGIC MỚI: HOÀN THÀNH TASK ĐỘC LẬP (CÓ FILE) ---
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['confirm_standalone_complete'])) {
+    $tid = intval($_POST['task_id_complete']);
+
+    // Upload file minh chứng (nếu có)
+    uploadMultipleToStorage('proof_files', $conn, $uid, $tid, 'proof');
+
+    // Đánh dấu hoàn thành
+    $conn->query("UPDATE tasks SET status='completed' WHERE id=$tid AND user_id=$uid");
+    header("Location: index.php?page=tasks"); exit();
+}
+
+// --- 4. LOGIC: MỞ LẠI TASK ĐỘC LẬP (RE-OPEN) ---
+if (isset($_GET['reopen_task'])) {
+    $tid = intval($_GET['reopen_task']);
+    $conn->query("UPDATE tasks SET status='pending' WHERE id=$tid AND user_id=$uid");
+    header("Location: index.php?page=tasks"); exit();
+}
+
+// --- 5. CÁC LOGIC CŨ (UPLOAD SUB, SAVE, DELETE...) ---
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_subtask_file'])) {
+    $sub_id = intval($_POST['subtask_id_upload']);
+    uploadMultipleToStorage('sub_files', $conn, $uid, $sub_id, 'proof');
+    header("Location: index.php?page=tasks"); exit();
+}
+
+if (isset($_GET['del_file'])) {
+    $fid = intval($_GET['del_file']);
+    $check_f = $conn->query("SELECT filepath FROM files WHERE id=$fid AND user_id=$uid");
+    if($check_f && $check_f->num_rows > 0) {
+        $path = $check_f->fetch_assoc()['filepath'];
+        if(file_exists($path)) unlink($path);
+        $conn->query("DELETE FROM files WHERE id=$fid");
+    }
+    if(isset($_GET['return_edit'])) header("Location: index.php?page=tasks&edit=".intval($_GET['return_edit'])."#taskFormBlock");
+    else header("Location: index.php?page=tasks");
+    exit();
+}
+
+if (isset($_GET['delete'])) {
+    $del_id = intval($_GET['delete']);
+    $files_check = $conn->query("SELECT filepath FROM files WHERE task_id=$del_id OR task_id IN (SELECT id FROM tasks WHERE parent_id=$del_id)");
+    if ($files_check) { while ($f = $files_check->fetch_assoc()) { if (file_exists($f['filepath'])) unlink($f['filepath']); } }
+    $conn->query("DELETE FROM tasks WHERE id=$del_id AND user_id=$uid");
+    header("Location: index.php?page=tasks"); exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_task'])) {
+    $title = trim($_POST['title']);
+    $due = $_POST['due_date'];
+    $cat_id = !empty($_POST['category_id']) ? intval($_POST['category_id']) : NULL;
+
+    // Tạo Category mới
+    if (!empty($_POST['new_category_name'])) {
+        $new_cat_name = trim($_POST['new_category_name']);
+        $new_cat_color = $_POST['new_category_color'] ?? '#6c757d';
+        $check = $conn->query("SELECT id FROM categories WHERE user_id=$uid AND name='$new_cat_name'");
+        if ($check->num_rows > 0) $cat_id = $check->fetch_assoc()['id'];
+        else {
+            $stmt = $conn->prepare("INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)");
+            $stmt->bind_param("iss", $uid, $new_cat_name, $new_cat_color);
+            if($stmt->execute()) $cat_id = $stmt->insert_id;
+        }
+    }
+
+    $current_task_id = 0;
+    if (isset($_POST['task_id']) && $_POST['task_id'] != '') {
+        $current_task_id = intval($_POST['task_id']);
+        $stmt = $conn->prepare("UPDATE tasks SET title=?, due_date=?, category_id=? WHERE id=? AND user_id=?");
+        $stmt->bind_param("ssiii", $title, $due, $cat_id, $current_task_id, $uid);
+        $stmt->execute();
+        // Update tên subtask cũ
+        if (isset($_POST['existing_subs']) && is_array($_POST['existing_subs'])) {
+            foreach ($_POST['existing_subs'] as $sid => $stitle) {
+                $stitle = trim($stitle);
+                $conn->query("UPDATE tasks SET title='$stitle' WHERE id=$sid AND user_id=$uid");
+            }
+        }
+    } else {
+        $stmt = $conn->prepare("INSERT INTO tasks (user_id, title, due_date, status, category_id) VALUES (?, ?, ?, 'pending', ?)");
+        $stmt->bind_param("issi", $uid, $title, $due, $cat_id);
+        if ($stmt->execute()) $current_task_id = $stmt->insert_id;
+    }
+
+    // Insert Subtask Mới
+    if (isset($_POST['subtasks']) && is_array($_POST['subtasks'])) {
+        foreach ($_POST['subtasks'] as $sub_title) {
+            if (trim($sub_title) != "") {
+                $sub_title = trim($sub_title);
+                // Mặc định subtask mới là pending -> Update lại cha thành pending nếu đang completed
+                $conn->query("INSERT INTO tasks (user_id, title, status, parent_id) VALUES ($uid, '$sub_title', 'pending', $current_task_id)");
+                $conn->query("UPDATE tasks SET status='pending' WHERE id=$current_task_id");
+            }
+        }
+    }
+    uploadMultipleToStorage('attachment_files', $conn, $uid, $current_task_id, 'att');
+    header("Location: index.php?page=tasks"); exit();
+}
+
+// --- 6. PREPARE DATA ---
+$edit_task = null; $edit_subs = []; $edit_files = [];
+if (isset($_GET['edit'])) {
+    $edit_id = intval($_GET['edit']);
+    $edit_task = $conn->query("SELECT * FROM tasks WHERE id=$edit_id AND user_id=$uid")->fetch_assoc();
+    if($edit_task) {
+        $res_sub = $conn->query("SELECT * FROM tasks WHERE parent_id=$edit_id ORDER BY created_at ASC");
+        while($s = $res_sub->fetch_assoc()) $edit_subs[] = $s;
+        $res_file = $conn->query("SELECT * FROM files WHERE task_id=$edit_id AND file_type='att'");
+        while($f = $res_file->fetch_assoc()) $edit_files[] = $f;
+    }
+}
+
+// Query List
+$filter_status = $_GET['status'] ?? 'all';
+$filter_cat = $_GET['cat'] ?? 'all';
+$page = isset($_GET['p']) ? max(1, intval($_GET['p'])) : 1;
+$limit = 5; $offset = ($page - 1) * $limit;
+
+$categories = [];
+$c_res = $conn->query("SELECT * FROM categories WHERE user_id=$uid ORDER BY name ASC");
+while($c = $c_res->fetch_assoc()) $categories[] = $c;
+
+$where = " WHERE t.user_id=$uid AND t.parent_id IS NULL";
+if ($filter_status == 'pending') $where .= " AND t.status='pending'";
+elseif ($filter_status == 'completed') $where .= " AND t.status='completed'";
+if ($filter_cat != 'all') $where .= " AND t.category_id = ".intval($filter_cat);
+
+$total = $conn->query("SELECT COUNT(*) as c FROM tasks t $where")->fetch_assoc()['c'];
+$total_pages = ceil($total / $limit);
+
+$tasks = $conn->query("SELECT t.*, c.name as cat_name, c.color as cat_color FROM tasks t LEFT JOIN categories c ON t.category_id = c.id $where ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset");
+?>
+
+    <div class="card" id="taskFormBlock">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #1e293b; display: flex; justify-content: space-between;">
+            <span><?= $edit_task ? '✏️ Cập Nhật Công Việc' : '➕ Thêm Công Việc Mới' ?></span>
+            <?php if($edit_task): ?><a href="index.php?page=tasks" style="font-size: 13px; color: #64748b;">Hủy</a><?php endif; ?>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="save_task" value="1">
+            <input type="hidden" name="task_id" value="<?= $edit_task['id'] ?? '' ?>">
+
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" name="title" class="form-input" placeholder="Tên công việc..." required style="flex-grow: 1;" value="<?= htmlspecialchars($edit_task['title'] ?? '') ?>">
+                <input type="date" name="due_date" class="form-input" required style="width: 160px;" value="<?= isset($edit_task['due_date']) ? date('Y-m-d', strtotime($edit_task['due_date'])) : '' ?>">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="flex: 1;">
+                    <label style="font-size: 11px; font-weight: 600; color: #64748b;">DANH MỤC</label>
+                    <select name="category_id" class="form-input" id="catSelect" style="margin: 5px 0 0 0;">
+                        <option value="">-- Không chọn --</option>
+                        <?php foreach($categories as $cat): ?>
+                            <option value="<?= $cat['id'] ?>" <?= (isset($edit_task['category_id']) && $edit_task['category_id'] == $cat['id']) ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div style="color: #cbd5e1; font-weight: bold;">HOẶC</div>
+                <div style="flex: 1;">
+                    <label style="font-size: 11px; font-weight: 600; color: #64748b;">TẠO MỚI</label>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <input type="text" name="new_category_name" class="form-input" placeholder="Nhập tên..." id="newCatInput" style="margin: 0;">
+                        <input type="color" name="new_category_color" value="#3b82f6" style="height: 42px; width: 42px; padding: 2px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="font-size: 12px; font-weight: 600; color: #475569;">Checklist công việc con:</label>
+                <?php if(!empty($edit_subs)): ?>
+                    <div style="margin-bottom: 10px; padding: 10px; background: #f1f5f9; border-radius: 6px;">
+                        <?php foreach($edit_subs as $es): ?>
+                            <div class="edit-sub-row">
+                                <i class="ri-git-commit-line" style="color:#94a3b8; margin-right: 5px;"></i>
+                                <input type="text" name="existing_subs[<?= $es['id'] ?>]" value="<?= htmlspecialchars($es['title']) ?>">
+                                <a href="index.php?page=tasks&del_file=<?= $es['id'] ?>&delete=<?= $es['id'] ?>" class="del-sub-btn" style="margin-left:5px; color:red;" onclick="return confirm('Xóa?')">&times;</a>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                <div id="subtask-container"></div>
+                <button type="button" onclick="addSubtaskField()" style="margin-top: 5px; background: none; border: 1px dashed #94a3b8; padding: 6px 12px; border-radius: 6px; color: #64748b; cursor: pointer; font-size: 12px;">+ Thêm dòng mới</button>
+            </div>
+
+            <div style="border-top: 1px solid #f1f5f9; padding-top: 15px;">
+                <?php if(!empty($edit_files)): ?>
+                    <div style="margin-bottom: 10px;">
+                        <?php foreach($edit_files as $ef): ?>
+                            <span class="file-chip">
+                             <a href="<?= $ef['filepath'] ?>" download="<?= htmlspecialchars($ef['filename']) ?>" style="color:inherit; text-decoration:none;">
+                                <?= htmlspecialchars($ef['filename']) ?>
+                            </a>
+                            <a href="index.php?page=tasks&del_file=<?= $ef['id'] ?>&return_edit=<?= $edit_task['id'] ?>" class="file-del" onclick="return confirm('Xóa?')">&times;</a>
+                        </span>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label for="file-upload" style="cursor: pointer; color: #64748b; font-size: 13px; display: flex; align-items: center; gap: 5px;">
+                        <i class="ri-attachment-line" style="font-size: 16px;"></i> <?= $edit_task ? 'Thêm file' : 'Đính kèm file' ?>
+                        <input id="file-upload" type="file" name="attachment_files[]" multiple style="display: none;">
+                    </label>
+                    <button type="submit" class="btn-primary"><?= $edit_task ? 'Cập Nhật' : 'Lưu Công Việc' ?></button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <form method="GET" class="task-toolbar" style="margin-top: 25px; display: flex; gap: 10px; align-items: center;">
+        <input type="hidden" name="page" value="tasks">
+        <select name="cat" class="filter-select" onchange="this.form.submit()" style="padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+            <option value="all">-- Tất cả danh mục --</option>
+            <?php foreach($categories as $cat): ?>
+                <option value="<?= $cat['id'] ?>" <?= ($filter_cat == $cat['id']) ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <select name="status" class="filter-select" onchange="this.form.submit()" style="padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+            <option value="all" <?= ($filter_status=='all')?'selected':'' ?>>Tất cả trạng thái</option>
+            <option value="pending" <?= ($filter_status=='pending')?'selected':'' ?>>Đang làm</option>
+            <option value="completed" <?= ($filter_status=='completed')?'selected':'' ?>>Đã xong</option>
+        </select>
+    </form>
+
+    <div class="card" style="padding: 0; margin-top: 15px; overflow: hidden;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse;">
+            <thead style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+            <tr>
+                <th style="padding: 12px 15px; text-align: left; width: 45%; color: #475569;">Nội dung</th>
+                <th style="padding: 12px 15px; text-align: left; color: #475569;">Tài liệu chung</th>
+                <th style="padding: 12px 15px; text-align: left; color: #475569;">Danh mục</th>
+                <th style="padding: 12px 15px; text-align: right; color: #475569;">Hành động</th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php if ($tasks && $tasks->num_rows > 0): ?>
+                <?php while($row = $tasks->fetch_assoc()):
+                    $tid = $row['id'];
+                    // Lấy Sub-tasks trước để check logic
+                    $subs = $conn->query("SELECT * FROM tasks WHERE parent_id = $tid ORDER BY created_at ASC");
+                    $has_sub = ($subs->num_rows > 0);
+                    ?>
+                    <tr style="border-bottom: 1px solid #f1f5f9; vertical-align: top;">
+                        <td style="padding: 15px;">
+                            <div style="font-weight: 700; font-size: 15px; color: #1e293b; margin-bottom: 4px; display:flex; align-items:center; gap:8px;">
+                                <i class="<?= $row['status']=='completed' ? 'ri-checkbox-circle-fill' : 'ri-time-line' ?>"
+                                   style="color: <?= $row['status']=='completed' ? '#16a34a' : '#3b82f6' ?>; font-size: 18px;"></i>
+                                <span style="<?= $row['status']=='completed' ? 'text-decoration:line-through; color:#94a3b8;' : '' ?>">
+                                <?= htmlspecialchars($row['title']) ?>
+                            </span>
+                            </div>
+                            <div style="font-size: 11px; color: #64748b; margin-left: 26px;">Hạn: <?= date('d/m/Y', strtotime($row['due_date'])) ?></div>
+
+                            <?php if($has_sub): ?>
+                                <div class="subtask-wrapper">
+                                    <?php while($sub = $subs->fetch_assoc()): ?>
+                                        <div class="subtask-card <?= $sub['status']=='completed'?'completed':'' ?>">
+                                            <div style="flex-grow: 1;">
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <a href="index.php?page=tasks&toggle_sub=<?= $sub['id'] ?>" style="text-decoration: none; color: inherit;">
+                                                        <i class="<?= $sub['status']=='completed' ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line' ?>"
+                                                           style="color: <?= $sub['status']=='completed' ? '#16a34a' : '#cbd5e1' ?>"></i>
+                                                    </a>
+                                                    <span><?= htmlspecialchars($sub['title']) ?></span>
+                                                </div>
+                                                <?php
+                                                $sid = $sub['id']; $sfiles = $conn->query("SELECT * FROM files WHERE task_id=$sid AND file_type='proof'");
+                                                if($sfiles->num_rows > 0): echo '<div style="margin-left: 20px;">';
+                                                    while($sf = $sfiles->fetch_assoc()): ?>
+                                                        <span class="file-chip" style="font-size:10px; background:#f0fdf4; color:#166534; border-color:#bbf7d0;">
+                                                        <a href="<?= $sf['filepath'] ?>" download="<?= htmlspecialchars($sf['filename']) ?>" style="text-decoration:none; color:inherit;"><i class="ri-file-text-line"></i> <?= htmlspecialchars($sf['filename']) ?></a>
+                                                        <a href="index.php?page=tasks&del_file=<?= $sf['id'] ?>" class="file-del" onclick="return confirm('Xóa?')">&times;</a>
+                                                    </span>
+                                                    <?php endwhile; echo '</div>'; endif; ?>
+                                            </div>
+                                            <i class="ri-upload-cloud-2-line" onclick="openSubUpload(<?= $sub['id'] ?>)" style="cursor: pointer; color: #64748b; font-size: 14px; padding: 4px;" title="Up minh chứng"></i>
+                                        </div>
+                                    <?php endwhile; ?>
+                                </div>
+                            <?php endif; ?>
+                        </td>
+
+                        <td style="padding: 15px;">
+                            <?php $fs = $conn->query("SELECT * FROM files WHERE task_id=$tid AND file_type='att'");
+                            if($fs->num_rows>0): while($f=$fs->fetch_assoc()): ?>
+                                <span class="file-chip">
+                                <a href="<?= $f['filepath'] ?>" download="<?= htmlspecialchars($f['filename']) ?>" style="text-decoration:none; color:inherit;"><i class="ri-file-download-line"></i> <?= htmlspecialchars($f['filename']) ?></a>
+                                <a href="index.php?page=tasks&del_file=<?= $f['id'] ?>" class="file-del" onclick="return confirm('Xóa?')">&times;</a>
+                            </span>
+                            <?php endwhile; else: echo '<span style="color:#cbd5e1; font-size:12px;">-- Trống --</span>'; endif; ?>
+                        </td>
+
+                        <td style="padding: 15px;"><?php if($row['category_id']): ?><span class="cat-badge" style="background-color: <?= htmlspecialchars($row['cat_color']) ?>"><?= htmlspecialchars($row['cat_name']) ?></span><?php else: echo '<span style="color:#94a3b8; font-size:12px;">Chung</span>'; endif; ?></td>
+
+                        <td style="padding: 15px; text-align: right;">
+                            <div style="display: flex; justify-content: flex-end;">
+                                <?php if ($has_sub): ?>
+                                    <button class="action-btn btn-grey" title="Hoàn thành tất cả việc nhỏ để xong việc này" disabled><i class="ri-checkbox-indeterminate-line"></i></button>
+                                <?php else: ?>
+                                    <?php if($row['status'] == 'pending'): ?>
+                                        <button onclick="openCompleteModal(<?= $row['id'] ?>)" class="action-btn btn-green" title="Xác nhận hoàn thành"><i class="ri-check-line"></i></button>
+                                    <?php else: ?>
+                                        <a href="index.php?page=tasks&reopen_task=<?= $row['id'] ?>" class="action-btn btn-green" title="Mở lại công việc"><i class="ri-refresh-line"></i></a>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+
+                                <a href="index.php?page=tasks&edit=<?= $row['id'] ?>#taskFormBlock" class="action-btn btn-blue" title="Sửa"><i class="ri-pencil-line"></i></a>
+                                <a href="index.php?page=tasks&delete=<?= $row['id'] ?>" onclick="return confirm('Xóa vĩnh viễn?')" class="action-btn btn-red" title="Xóa"><i class="ri-delete-bin-line"></i></a>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <tr><td colspan="4" class="text-center" style="padding: 40px; color: #94a3b8;">Chưa có dữ liệu.</td></tr>
+            <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+
+<?php if ($total_pages > 1): ?>
+    <div style="display: flex; justify-content: center; gap: 5px; margin-top: 20px;">
+        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+            <a href="index.php?page=tasks&p=<?= $i ?>&status=<?= $filter_status ?>&cat=<?= $filter_cat ?>" style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; text-decoration: none; <?= ($i == $page) ? 'background:#3b82f6; color:white;' : 'background:white; color:#64748b;' ?>"><?= $i ?></a>
+        <?php endfor; ?>
+    </div>
+<?php endif; ?>
+
+    <div id="subUploadModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 25px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <h3 style="margin-top: 0; font-size: 16px; color: #1e293b;">Nộp kết quả (Sub-task)</h3>
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="upload_subtask_file" value="1">
+                <input type="hidden" name="subtask_id_upload" id="modalSubId">
+                <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px;">
+                    <input type="file" name="sub_files[]" multiple class="form-input" style="border:none; width: 100%;">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="document.getElementById('subUploadModal').style.display='none'" style="padding: 8px 15px; border: 1px solid #e2e8f0; background: white; border-radius: 6px; cursor: pointer;">Hủy</button>
+                    <button type="submit" class="btn-primary" style="padding: 8px 20px;">Tải lên</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="completeTaskModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 25px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <h3 style="margin-top: 0; font-size: 16px; color: #1e293b;">Xác nhận Hoàn thành</h3>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 15px;">Bạn có muốn nộp thêm minh chứng trước khi đóng công việc này không?</p>
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="confirm_standalone_complete" value="1">
+                <input type="hidden" name="task_id_complete" id="modalTaskId">
+                <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px;">
+                    <input type="file" name="proof_files[]" multiple class="form-input" style="border:none; width: 100%;">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="document.getElementById('completeTaskModal').style.display='none'" style="padding: 8px 15px; border: 1px solid #e2e8f0; background: white; border-radius: 6px; cursor: pointer;">Hủy</button>
+                    <button type="submit" class="btn-primary" style="background: #16a34a; border-color: #16a34a; padding: 8px 20px;">Xác nhận Xong</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('catSelect').addEventListener('change', function() {
+            let isSelected = this.value !== "";
+            let inputNew = document.getElementById('newCatInput');
+            if(isSelected) { inputNew.disabled = true; inputNew.value = ""; inputNew.style.backgroundColor = "#f1f5f9"; }
+            else { inputNew.disabled = false; inputNew.style.backgroundColor = "#fff"; }
+        });
+
+        function addSubtaskField() {
+            const container = document.getElementById('subtask-container');
+            const div = document.createElement('div');
+            div.style.marginBottom = '5px'; div.style.display = 'flex'; div.style.alignItems = 'center';
+            div.innerHTML = `<i class="ri-git-commit-line" style="color:#cbd5e1; margin-right:8px;"></i><input type="text" name="subtasks[]" class="form-input" placeholder="Việc nhỏ mới..." style="font-size: 13px; padding: 8px; flex-grow:1;"><button type="button" onclick="this.parentElement.remove()" style="border:none; background:none; color:#ef4444; cursor:pointer; margin-left:5px; font-size:16px;">&times;</button>`;
+            container.appendChild(div);
+            div.querySelector('input').focus();
+        }
+
+        function openSubUpload(id) {
+            document.getElementById('modalSubId').value = id;
+            document.getElementById('subUploadModal').style.display = 'flex';
+        }
+
+        function openCompleteModal(id) {
+            document.getElementById('modalTaskId').value = id;
+            document.getElementById('completeTaskModal').style.display = 'flex';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('subUploadModal')) document.getElementById('subUploadModal').style.display = "none";
+            if (event.target == document.getElementById('completeTaskModal')) document.getElementById('completeTaskModal').style.display = "none";
+        }
+    </script>
+<?php ob_end_flush(); ?>; từ code này giúp tôi vẽ dfd

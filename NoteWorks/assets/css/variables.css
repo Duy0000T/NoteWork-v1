@@ -1,0 +1,26 @@
+:root {
+    /* Màu chủ đạo */
+    --primary: #6C5DD3;
+    --primary-hover: #5b4dbe;
+    --secondary: #FF754C;
+
+    /* Màu nền */
+    --bg-body: #F0F2F5;
+    --bg-sidebar: #FFFFFF;
+
+    /* Màu chữ */
+    --text-main: #11142D;
+    --text-grey: #808191;
+
+    /* Cấu trúc */
+    --border: #E4E4E4;
+    --shadow: 0px 4px 20px rgba(0, 0, 0, 0.05);
+    --radius: 16px;
+
+    /* Màu phụ trợ (Badge/Icon) */
+    --color-purple: #6C5DD3;
+    --color-orange: #FF754C;
+    --color-blue: #0075FF;
+    --color-green: #00B69B;
+    --color-red: #FF5B5B;
+}
