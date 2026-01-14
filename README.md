@@ -2,7 +2,8 @@
 
 Phát triển bởi: Bùi Bảo Duy
 
-Định hướng
+Đây là danh sách định hướng và ý tưởng phát triển trong tương lai, chưa được triển khai ở phiên bản hiện tại.
+
 - Thông báo hạn, tiến độ công việc qua thông báo của trình duyệt, email 
 
 - Nạp lại thông tin cũ khi có lỗi nhập liệu 
